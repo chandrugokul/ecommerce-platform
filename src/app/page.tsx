@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import AddToCartButton from "./AddToCartButton";
 
 export default async function HomePage() {
   const { data: products, error } = await supabase
@@ -266,12 +267,16 @@ export default async function HomePage() {
                       ₹{Number(product.price).toLocaleString("en-IN")}
                     </p>
 
-                    <button
-                      disabled={stock === 0}
-                      className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-                    >
-                      {stock === 0 ? "Sold Out" : "Add"}
-                    </button>
+                    <AddToCartButton
+  product={{
+    id: product.id,
+    name: product.name,
+    price: Number(product.price),
+    image_url: product.image_url,
+    category: product.category,
+  }}
+  disabled={stock === 0}
+/>
 
                   </div>
 
