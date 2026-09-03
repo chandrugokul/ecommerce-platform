@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
+import DeleteProductButton from "./DeleteProductButton";
+
 export default async function ProductsPage() {
   const { data: products, error } = await supabase
     .from("products")
@@ -127,12 +129,7 @@ export default async function ProductsPage() {
                       ✏️ Edit
                     </Link>
 
-                    <button
-                      disabled
-                      className="rounded-xl bg-gray-100 py-3 font-semibold text-gray-400"
-                    >
-                      🗑️ Delete
-                    </button>
+                   <DeleteProductButton id={product.id} />
                   </div>
 
                 </div>
