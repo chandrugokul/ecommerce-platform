@@ -33,10 +33,9 @@ export default function NewProductPage() {
 
     if (error) {
       console.error(error);
-      setMessage("Failed to add product.");
+      setMessage("Failed to add product: " + error.message);
     } else {
       setMessage("✅ Product added successfully!");
-
       setName("");
       setPrice("");
       setCategory("");
@@ -50,33 +49,29 @@ export default function NewProductPage() {
   return (
     <main className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-2xl">
-        <div className="mb-6">
-          <h1 className="text-3xl font-black">Add Product</h1>
-          <p className="mt-1 text-gray-500">
-            Add a new product to your store.
-          </p>
-        </div>
+        <h1 className="mb-2 text-3xl font-black">Add Product</h1>
+
+        <p className="mb-6 text-gray-500">
+          Add a new product to your store.
+        </p>
 
         <form
           onSubmit={addProduct}
           className="space-y-5 rounded-3xl bg-white p-6 shadow-sm"
         >
-          {/* Product Name */}
           <div>
             <label className="mb-2 block font-semibold">
               Product Name *
             </label>
 
             <input
-              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Example: Handmade Flower"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Handmade Rose"
+              className="w-full rounded-xl border px-4 py-3"
             />
           </div>
 
-          {/* Price */}
           <div>
             <label className="mb-2 block font-semibold">
               Price *
@@ -87,29 +82,26 @@ export default function NewProductPage() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="799"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border px-4 py-3"
             />
           </div>
 
-          {/* Category */}
           <div>
             <label className="mb-2 block font-semibold">
               Category
             </label>
 
             <input
-              type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="Flowers"
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border px-4 py-3"
             />
           </div>
 
-          {/* Image URL */}
           <div>
             <label className="mb-2 block font-semibold">
-              Product Image URL
+              Image URL
             </label>
 
             <input
@@ -117,15 +109,10 @@ export default function NewProductPage() {
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border px-4 py-3"
             />
-
-            <p className="mt-2 text-sm text-gray-500">
-              We will add direct image upload from your phone next.
-            </p>
           </div>
 
-          {/* Description */}
           <div>
             <label className="mb-2 block font-semibold">
               Description
@@ -134,20 +121,18 @@ export default function NewProductPage() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your product..."
+              placeholder="Product description..."
               rows={4}
-              className="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border px-4 py-3"
             />
           </div>
 
-          {/* Message */}
           {message && (
             <div className="rounded-xl bg-gray-100 p-4 font-semibold">
               {message}
             </div>
           )}
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
