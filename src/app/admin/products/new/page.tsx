@@ -12,6 +12,7 @@ export default function NewProductPage() {
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+const [stockQuantity, setStockQuantity] = useState("0");
 
   function handleImageChange(
     e: React.ChangeEvent<HTMLInputElement>
@@ -71,6 +72,7 @@ export default function NewProductPage() {
         .insert({
           name,
           price: Number(price),
+stock_quantity: Number(stockQuantity),
           category,
           description,
           image_url: imageUrl,
@@ -150,6 +152,20 @@ export default function NewProductPage() {
               className="w-full rounded-xl border px-4 py-3"
             />
           </div>
+<div>
+  <label className="mb-2 block text-sm font-medium">
+    Stock Quantity
+  </label>
+
+  <input
+    type="number"
+    min="0"
+    value={stockQuantity}
+    onChange={(e) => setStockQuantity(e.target.value)}
+    className="w-full rounded-lg border px-4 py-3"
+    placeholder="Enter stock quantity"
+  />
+</div>
 
           {/* Category */}
           <div>
