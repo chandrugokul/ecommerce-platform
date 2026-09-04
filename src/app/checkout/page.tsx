@@ -78,23 +78,21 @@ const [placingOrder, setPlacingOrder] = useState(false);
   setPlacingOrder(true);
 
   try {
-    const { data, error } = await supabase
-      .from("orders")
-      .insert({
-        customer_name: name.trim(),
-        customer_phone: phone.trim(),
-        address: address.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        pincode: pincode.trim(),
-        items: cart,
-        subtotal,
-        delivery_charge: 0,
-        total: subtotal,
-        status: "pending",
-      })
-      .select("id")
-      .single();
+    const { error } = await supabase
+  .from("orders")
+  .insert({
+    customer_name: name.trim(),
+    customer_phone: phone.trim(),
+    address: address.trim(),
+    city: city.trim(),
+    state: state.trim(),
+    pincode: pincode.trim(),
+    items: cart,
+    subtotal: subtotal,
+    delivery_charge: 0,
+    total: subtotal,
+    status: "pending",
+  });
 
     if (error) {
   console.error("ORDER ERROR:", error);
@@ -104,7 +102,7 @@ const [placingOrder, setPlacingOrder] = useState(false);
 
     clearCart();
 
-    router.push(`/order-success?orderId=${data.id}`);
+    router.push("/order-success");
   } catch (error) {
     console.error(error);
     alert("Something went wrong. Please try again.");
