@@ -72,13 +72,7 @@ export default function AdminLayout({
               View Store
             </Link>
 
-            <Link
-              href="/admin/login"
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
-            >
-              🚪
-              Logout
-            </Link>
+            <LogoutButton />
 
           </div>
 
