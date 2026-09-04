@@ -97,10 +97,10 @@ const [placingOrder, setPlacingOrder] = useState(false);
       .single();
 
     if (error) {
-      console.error(error);
-      alert("Unable to place order. Please try again.");
-      return;
-    }
+  console.error("ORDER ERROR:", error);
+  alert(`Order failed: ${error.message}`);
+  return;
+}
 
     clearCart();
 
