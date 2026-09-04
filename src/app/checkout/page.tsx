@@ -3,10 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+
 import {
   CartItem,
   getCart,
   getCartTotal,
+clearCart,
 } from "@/lib/cart";
 
 export default function CheckoutPage() {
@@ -21,6 +24,7 @@ export default function CheckoutPage() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
+const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
     setCart(getCart());
@@ -64,12 +68,50 @@ export default function CheckoutPage() {
     );
   }
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  e.preventDefault();
 
-    // Payment/order creation will be connected in the next step.
-    router.push("/order-success");
+  if (!name || !phone || !address || !city || !state || !pincode) {
+    return;
   }
+
+  setPlacingOrder(true);
+
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .insert({
+        customer_name: name.trim(),
+        customer_phone: phone.trim(),
+        address: address.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        pincode: pincode.trim(),
+        items: cart,
+        subtotal,
+        delivery_charge: 0,
+        total: subtotal,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error(error);
+      alert("Unable to place order. Please try again.");
+      return;
+    }
+
+    clearCart();
+
+    router.push(`/order-success?orderId=${data.id}`);
+  } catch (error) {
+    console.error(error);
+    alert("Something went wrong. Please try again.");
+  } finally {
+    setPlacingOrder(false);
+  }
+}
 
   return (
     <main className="min-h-screen bg-[#fffaf7] px-4 py-6">
@@ -294,11 +336,12 @@ export default function CheckoutPage() {
             </div>
 
             <button
-              type="submit"
-              className="mt-6 w-full rounded-xl bg-slate-900 px-5 py-4 text-sm font-bold text-white shadow-lg hover:bg-slate-800"
-            >
-              Place Order →
-            </button>
+  type="submit"
+  disabled={placingOrder}
+  className="mt-6 w-full rounded-xl bg-slate-900 px-5 py-4 text-sm font-bold text-white shadow-lg transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+>
+  {placingOrder ? "Placing Order..." : "Place Order →"}
+</button>
 
             <p className="mt-3 text-center text-[11px] text-slate-400">
               Secure checkout
