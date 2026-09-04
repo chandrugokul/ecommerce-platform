@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import AddToCartButton from "./AddToCartButton";
+import CartIcon from "./CartIcon";
 
 export default async function HomePage() {
   const { data: products, error } = await supabase
@@ -52,7 +53,7 @@ export default async function HomePage() {
               🔍
             </button>
 
-            <Link
+            <CartIcon<Link
   href="/cart"
   className="relative flex h-10 w-10 items-center justify-center rounded-full border border-orange-100 bg-white"
   aria-label="Shopping cart"
@@ -62,7 +63,7 @@ export default async function HomePage() {
   <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
     0
   </span>
-</Link>
+</Link>/>
           </div>
 
         </div>
