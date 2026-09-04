@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LogoutButton from "./LogoutButton";
 
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: "📊" },
@@ -107,12 +108,7 @@ export default function AdminLayout({
             </div>
           </Link>
 
-          <Link
-            href="/admin/login"
-            className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600"
-          >
-            Logout
-          </Link>
+         <LogoutButton />
 
         </div>
 
