@@ -6,9 +6,9 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { CartItem, getCart, getCartTotal, clearCart } from "@/lib/cart";
 
-// Replace with your actual merchant or personal UPI ID and store name
-const STORE_UPI_ID = "YOUR_UPI_ID@okaxis";
-const STORE_NAME = "Your Store";
+// Store Configuration
+const STORE_UPI_ID = "sn5036031-4@okicici";
+const STORE_NAME = "NasreenDecor";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -27,7 +27,6 @@ export default function CheckoutPage() {
   // Payment method selection
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("upi");
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setCart(getCart());
@@ -68,21 +67,10 @@ export default function CheckoutPage() {
     );
   }
 
-  // NPCI Standard UPI URI
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(STORE_UPI_ID)}&pn=${encodeURIComponent(
+  // NPCI Standard UPI Intent Link
+  const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(STORE_UPI_ID)}&pn=${encodeURIComponent(
     STORE_NAME
-  )}&am=${subtotal}&cu=INR&tn=Order%20Payment`;
-
-  // QR Code generator URL
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-    upiUrl
-  )}`;
-
-  const copyUpiId = () => {
-    navigator.clipboard.writeText(STORE_UPI_ID);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  )}&am=${subtotal}&cu=INR&tn=Payment%20to%20${encodeURIComponent(STORE_NAME)}`;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -141,7 +129,7 @@ export default function CheckoutPage() {
             Checkout
           </h1>
           <p className="text-sm text-slate-600">
-            Enter your delivery details and choose your preferred payment option.
+            Enter your delivery details and choose how you want to pay.
           </p>
         </div>
 
@@ -150,13 +138,13 @@ export default function CheckoutPage() {
           className="grid gap-6 lg:grid-cols-[1fr_360px]"
         >
           <div className="space-y-6">
-            {/* Delivery Form */}
+            {/* Delivery Details */}
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-base font-bold text-slate-900">
                 Delivery Information
               </h2>
               <p className="text-xs text-slate-500">
-                Where should we deliver your package?
+                Where should we deliver your order?
               </p>
 
               <div className="mt-5 space-y-4">
@@ -266,7 +254,7 @@ export default function CheckoutPage() {
               </p>
 
               <div className="mt-4 space-y-3">
-                {/* UPI Option */}
+                {/* Direct UPI Intent Option */}
                 <label
                   className={`flex cursor-pointer flex-col rounded-xl border p-4 transition ${
                     paymentMethod === "upi"
@@ -286,64 +274,30 @@ export default function CheckoutPage() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold text-slate-900">
-                          Direct UPI (Paytm / GPay / PhonePe / QR)
+                          Direct UPI App Intent
                         </span>
                         <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700">
-                          Recommended
+                          Instant App Launch
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-slate-500">
-                        Scan QR code, copy UPI ID, or open on mobile.
+                        Launches Google Pay, PhonePe, Paytm, or BHIM directly to pay {STORE_NAME}.
                       </p>
                     </div>
                   </div>
 
-                  {/* UPI Details expansion when selected */}
+                  {/* Direct Launch Button */}
                   {paymentMethod === "upi" && (
-                    <div className="mt-4 border-t border-orange-200/60 pt-4">
-                      <div className="flex flex-col items-center text-center">
-                        {/* QR Code */}
-                        <div className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
-                          <img
-                            src={qrCodeUrl}
-                            alt="Scan UPI QR"
-                            className="h-36 w-36 object-contain"
-                          />
-                        </div>
-                        <p className="mt-1.5 text-[11px] font-medium text-slate-500">
-                          Scan to pay ₹{subtotal.toLocaleString("en-IN")}
-                        </p>
-
-                        <div className="my-3 flex w-full items-center">
-                          <div className="flex-1 border-t border-slate-200" />
-                          <span className="px-2 text-[10px] font-bold text-slate-400">
-                            OR COPY UPI ID
-                          </span>
-                          <div className="flex-1 border-t border-slate-200" />
-                        </div>
-
-                        {/* Copy UPI Box */}
-                        <div className="flex w-full max-w-xs items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 py-2">
-                          <span className="font-mono text-xs font-semibold text-slate-800">
-                            {STORE_UPI_ID}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={copyUpiId}
-                            className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 shadow-sm active:scale-95"
-                          >
-                            {copied ? "✓ Copied" : "Copy"}
-                          </button>
-                        </div>
-
-                        {/* Deep link for mobile devices */}
-                        <a
-                          href={upiUrl}
-                          className="mt-3 inline-block rounded-lg bg-orange-100 px-4 py-2 text-xs font-bold text-orange-800 hover:bg-orange-200"
-                        >
-                          📲 Click to Open Installed UPI App
-                        </a>
-                      </div>
+                    <div className="mt-4 border-t border-orange-200/60 pt-3">
+                      <a
+                        href={upiIntentUrl}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-center text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.99]"
+                      >
+                        <span>📲 Tap to Pay ₹{subtotal.toLocaleString("en-IN")} via UPI App</span>
+                      </a>
+                      <p className="mt-2 text-center text-[11px] text-slate-500">
+                        Paying to: <span className="font-mono font-semibold text-slate-700">{STORE_UPI_ID}</span> ({STORE_NAME})
+                      </p>
                     </div>
                   )}
                 </label>
@@ -374,7 +328,7 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Pay with cash when your package is delivered.
+                      Pay with cash directly when your package arrives.
                     </p>
                   </div>
                 </label>
@@ -382,7 +336,7 @@ export default function CheckoutPage() {
             </section>
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary Sidebar */}
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-6">
             <h2 className="text-base font-bold text-slate-900">
               Order Summary
@@ -449,11 +403,11 @@ export default function CheckoutPage() {
                 ? "Placing Order..."
                 : paymentMethod === "cod"
                 ? `Place Order (COD) • ₹${subtotal.toLocaleString("en-IN")}`
-                : `I Have Paid via UPI • ₹${subtotal.toLocaleString("en-IN")}`}
+                : `Confirm Order (UPI Paid) • ₹${subtotal.toLocaleString("en-IN")}`}
             </button>
 
             <p className="mt-3 text-center text-[11px] text-slate-400">
-              🔒 Safe & secure checkout
+              🔒 Safe & encrypted checkout
             </p>
           </aside>
         </form>
