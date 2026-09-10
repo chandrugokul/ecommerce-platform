@@ -19,7 +19,6 @@ export default function CheckoutPage() {
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("upi");
-  const [upiId, setUpiId] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
@@ -68,11 +67,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (paymentMethod === "upi" && !upiId.trim()) {
-      alert("Please enter your UPI ID");
-      return;
-    }
-
     setPlacingOrder(true);
 
     try {
@@ -88,8 +82,7 @@ export default function CheckoutPage() {
         delivery_charge: 0,
         total: subtotal,
         payment_method: paymentMethod,
-        upi_id: paymentMethod === "upi" ? upiId.trim() : null,
-        status: paymentMethod === "cod" ? "pending" : "awaiting_payment",
+        status: "pending",
       });
 
       if (error) {
@@ -267,28 +260,15 @@ export default function CheckoutPage() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold text-slate-900">
-                        UPI (GPay / PhonePe / Paytm)
+                        UPI
                       </span>
                       <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
                         Instant
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Pay directly using any UPI application.
+                      Google Pay, PhonePe, Paytm, BHIM, or any UPI app
                     </p>
-
-                    {paymentMethod === "upi" && (
-                      <div className="mt-3">
-                        <input
-                          type="text"
-                          value={upiId}
-                          onChange={(e) => setUpiId(e.target.value)}
-                          placeholder="username@okhdfcbank or your-mobile@upi"
-                          required={paymentMethod === "upi"}
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                        />
-                      </div>
-                    )}
                   </div>
                 </label>
 
@@ -318,7 +298,7 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Pay with cash upon package delivery.
+                      Pay with cash upon package delivery
                     </p>
                   </div>
                 </label>
