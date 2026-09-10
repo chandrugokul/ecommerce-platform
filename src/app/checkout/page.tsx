@@ -24,8 +24,9 @@ export default function CheckoutPage() {
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
 
-  // Payment method selection
+  // Payment method & UTR
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("upi");
+  const [utrNumber, setUtrNumber] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
@@ -80,6 +81,14 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (paymentMethod === "upi") {
+      const cleanUtr = utrNumber.trim();
+      if (!/^\d{12}$/.test(cleanUtr)) {
+        alert("Please enter a valid 12-digit numeric UPI Reference / UTR Number.");
+        return;
+      }
+    }
+
     setPlacingOrder(true);
 
     try {
@@ -95,6 +104,7 @@ export default function CheckoutPage() {
         delivery_charge: 0,
         total: subtotal,
         payment_method: paymentMethod,
+        utr_number: paymentMethod === "upi" ? utrNumber.trim() : null,
         status: paymentMethod === "cod" ? "pending" : "pending_verification",
       });
 
@@ -129,7 +139,7 @@ export default function CheckoutPage() {
             Checkout
           </h1>
           <p className="text-sm text-slate-600">
-            Enter your delivery details and choose how you want to pay.
+            Enter your delivery details and complete your payment.
           </p>
         </div>
 
@@ -254,7 +264,7 @@ export default function CheckoutPage() {
               </p>
 
               <div className="mt-4 space-y-3">
-                {/* Direct UPI Intent Option */}
+                {/* Direct UPI Option */}
                 <label
                   className={`flex cursor-pointer flex-col rounded-xl border p-4 transition ${
                     paymentMethod === "upi"
@@ -281,23 +291,44 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-slate-500">
-                        Launches Google Pay, PhonePe, Paytm, or BHIM directly to pay {STORE_NAME}.
+                        Pay ₹{subtotal.toLocaleString("en-IN")} directly using Google Pay, PhonePe, Paytm, or BHIM.
                       </p>
                     </div>
                   </div>
 
-                  {/* Direct Launch Button */}
                   {paymentMethod === "upi" && (
-                    <div className="mt-4 border-t border-orange-200/60 pt-3">
-                      <a
-                        href={upiIntentUrl}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-center text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.99]"
-                      >
-                        <span>📲 Tap to Pay ₹{subtotal.toLocaleString("en-IN")} via UPI App</span>
-                      </a>
-                      <p className="mt-2 text-center text-[11px] text-slate-500">
-                        Paying to: <span className="font-mono font-semibold text-slate-700">{STORE_UPI_ID}</span> ({STORE_NAME})
-                      </p>
+                    <div className="mt-4 space-y-4 border-t border-orange-200/60 pt-3">
+                      {/* Launch App Button */}
+                      <div>
+                        <a
+                          href={upiIntentUrl}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-center text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.99]"
+                        >
+                          <span>📲 1. Tap to Pay ₹{subtotal.toLocaleString("en-IN")} via UPI</span>
+                        </a>
+                        <p className="mt-1.5 text-center text-[11px] text-slate-500">
+                          Paying to: <span className="font-mono font-semibold text-slate-700">{STORE_UPI_ID}</span> ({STORE_NAME})
+                        </p>
+                      </div>
+
+                      {/* 12-Digit UTR Input Field */}
+                      <div className="rounded-xl border border-orange-200 bg-white p-3 shadow-xs">
+                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-800">
+                          2. Enter 12-Digit UPI Ref / UTR No. <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={utrNumber}
+                          onChange={(e) => setUtrNumber(e.target.value.replace(/\D/g, ""))}
+                          placeholder="e.g. 423871928374"
+                          maxLength={12}
+                          required={paymentMethod === "upi"}
+                          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-mono tracking-wider text-slate-900 placeholder-slate-400 focus:border-orange-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-100"
+                        />
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Found under "UPI Transaction ID" or "UTR" in your banking/UPI app receipt.
+                        </p>
+                      </div>
                     </div>
                   )}
                 </label>
@@ -403,7 +434,7 @@ export default function CheckoutPage() {
                 ? "Placing Order..."
                 : paymentMethod === "cod"
                 ? `Place Order (COD) • ₹${subtotal.toLocaleString("en-IN")}`
-                : `Confirm Order (UPI Paid) • ₹${subtotal.toLocaleString("en-IN")}`}
+                : `Submit Order (UTR Verification) • ₹${subtotal.toLocaleString("en-IN")}`}
             </button>
 
             <p className="mt-3 text-center text-[11px] text-slate-400">
