@@ -18,6 +18,8 @@ export default function CheckoutPage() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("upi");
+  const [upiId, setUpiId] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
@@ -66,6 +68,11 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (paymentMethod === "upi" && !upiId.trim()) {
+      alert("Please enter your UPI ID");
+      return;
+    }
+
     setPlacingOrder(true);
 
     try {
@@ -80,7 +87,9 @@ export default function CheckoutPage() {
         subtotal: subtotal,
         delivery_charge: 0,
         total: subtotal,
-        status: "pending",
+        payment_method: paymentMethod,
+        upi_id: paymentMethod === "upi" ? upiId.trim() : null,
+        status: paymentMethod === "cod" ? "pending" : "awaiting_payment",
       });
 
       if (error) {
@@ -114,7 +123,7 @@ export default function CheckoutPage() {
             Checkout
           </h1>
           <p className="text-sm text-slate-600">
-            Enter your delivery details to complete your order.
+            Enter your delivery details and choose a payment method.
           </p>
         </div>
 
@@ -122,111 +131,200 @@ export default function CheckoutPage() {
           onSubmit={handleSubmit}
           className="grid gap-6 lg:grid-cols-[1fr_360px]"
         >
-          {/* Customer Details Form */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">
-              Delivery Information
-            </h2>
-            <p className="text-xs text-slate-500">
-              Where should we deliver your order?
-            </p>
+          <div className="space-y-6">
+            {/* Customer Details */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-base font-bold text-slate-900">
+                Delivery Information
+              </h2>
+              <p className="text-xs text-slate-500">
+                Where should we deliver your order?
+              </p>
 
-            <div className="mt-5 space-y-4">
-              {/* Full Name */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Chandru Manoharan"
-                  required
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                />
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Mobile Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="10-digit mobile number"
-                  required
-                  pattern="[0-9]{10}"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                />
-              </div>
-
-              {/* Address */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Address <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Flat / House no., Building, Street name, Area"
-                  rows={3}
-                  required
-                  className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                />
-              </div>
-
-              {/* City & State */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="mt-5 space-y-4">
+                {/* Full Name */}
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                    City <span className="text-red-500">*</span>
+                    Full Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g. Chennai"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Chandru Manoharan"
                     required
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
                   />
                 </div>
 
+                {/* Phone */}
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                    State <span className="text-red-500">*</span>
+                    Mobile Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="10-digit mobile number"
+                    required
+                    pattern="[0-9]{10}"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                  />
+                </div>
+
+                {/* Address */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    Address <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Flat / House no., Building, Street name, Area"
+                    rows={3}
+                    required
+                    className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                  />
+                </div>
+
+                {/* City & State */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      City <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g. Chennai"
+                      required
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      State <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      placeholder="e.g. Tamil Nadu"
+                      required
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                    />
+                  </div>
+                </div>
+
+                {/* Pincode */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    Pincode <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    placeholder="e.g. Tamil Nadu"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    placeholder="6-digit PIN code"
                     required
+                    pattern="[0-9]{6}"
+                    maxLength={6}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
                   />
                 </div>
               </div>
+            </section>
 
-              {/* Pincode */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Pincode <span className="text-red-500">*</span>
+            {/* Payment Method Section */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-base font-bold text-slate-900">
+                Payment Method
+              </h2>
+              <p className="text-xs text-slate-500">
+                Select your preferred way to pay
+              </p>
+
+              <div className="mt-4 space-y-3">
+                {/* UPI Option */}
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                    paymentMethod === "upi"
+                      ? "border-orange-500 bg-orange-50/40 ring-1 ring-orange-500"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="payment_method"
+                    value="upi"
+                    checked={paymentMethod === "upi"}
+                    onChange={() => setPaymentMethod("upi")}
+                    className="mt-0.5 h-4 w-4 text-orange-600 focus:ring-orange-500"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-900">
+                        UPI (GPay / PhonePe / Paytm)
+                      </span>
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                        Instant
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Pay directly using any UPI application.
+                    </p>
+
+                    {paymentMethod === "upi" && (
+                      <div className="mt-3">
+                        <input
+                          type="text"
+                          value={upiId}
+                          onChange={(e) => setUpiId(e.target.value)}
+                          placeholder="username@okhdfcbank or your-mobile@upi"
+                          required={paymentMethod === "upi"}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </label>
-                <input
-                  type="text"
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
-                  placeholder="6-digit PIN code"
-                  required
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                />
+
+                {/* Cash on Delivery Option */}
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                    paymentMethod === "cod"
+                      ? "border-orange-500 bg-orange-50/40 ring-1 ring-orange-500"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="payment_method"
+                    value="cod"
+                    checked={paymentMethod === "cod"}
+                    onChange={() => setPaymentMethod("cod")}
+                    className="mt-0.5 h-4 w-4 text-orange-600 focus:ring-orange-500"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-900">
+                        Cash on Delivery (COD)
+                      </span>
+                      <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                        Available
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Pay with cash upon package delivery.
+                    </p>
+                  </div>
+                </label>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
           {/* Order Summary */}
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-6">
@@ -291,7 +389,11 @@ export default function CheckoutPage() {
               disabled={placingOrder}
               className="mt-5 w-full rounded-xl bg-orange-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {placingOrder ? "Placing Order..." : `Pay ₹${subtotal.toLocaleString("en-IN")}`}
+              {placingOrder
+                ? "Placing Order..."
+                : paymentMethod === "cod"
+                ? `Place Order (COD) • ₹${subtotal.toLocaleString("en-IN")}`
+                : `Pay via UPI • ₹${subtotal.toLocaleString("en-IN")}`}
             </button>
 
             <p className="mt-3 text-center text-[11px] text-slate-400">
