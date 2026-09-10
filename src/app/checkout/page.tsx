@@ -6,20 +6,28 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { CartItem, getCart, getCartTotal, clearCart } from "@/lib/cart";
 
+// Replace with your actual merchant/personal UPI ID and business name
+const STORE_UPI_ID = "YOUR_UPI_ID@okaxis"; 
+const STORE_NAME = "Your Store";
+
 export default function CheckoutPage() {
   const router = useRouter();
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [mounted, setMounted] = useState(false);
 
+  // Form Fields
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"upi" | "cod">("upi");
+
+  // Step state: 'details' -> 'upi_payment'
+  const [step, setStep] = useState<"details" | "upi_payment">("details");
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setCart(getCart());
@@ -60,13 +68,34 @@ export default function CheckoutPage() {
     );
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  // Standard NPCI UPI URI Scheme
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(STORE_UPI_ID)}&pn=${encodeURIComponent(
+    STORE_NAME
+  )}&am=${subtotal}&cu=INR&tn=Order%20Payment`;
 
+  // QR Code generator URL
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+    upiUrl
+  )}`;
+
+  const copyUpiId = () => {
+    navigator.clipboard.writeText(STORE_UPI_ID);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Step 1: Validate address and proceed to UPI screen
+  function handleProceedToPayment(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     if (!name || !phone || !address || !city || !state || !pincode) {
+      alert("Please fill in all delivery details.");
       return;
     }
+    setStep("upi_payment");
+  }
 
+  // Step 2: Finalize and submit order after customer pays
+  async function handleConfirmPayment() {
     setPlacingOrder(true);
 
     try {
@@ -81,8 +110,8 @@ export default function CheckoutPage() {
         subtotal: subtotal,
         delivery_charge: 0,
         total: subtotal,
-        payment_method: paymentMethod,
-        status: "pending",
+        payment_method: "upi",
+        status: "pending_verification",
       });
 
       if (error) {
@@ -106,207 +135,225 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-5xl">
         {/* Navigation & Header */}
         <div className="mb-6">
-          <Link
-            href="/cart"
-            className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-orange-600 hover:text-orange-700"
-          >
-            ← Back to Cart
-          </Link>
+          {step === "upi_payment" ? (
+            <button
+              type="button"
+              onClick={() => setStep("details")}
+              className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-orange-600 hover:text-orange-700"
+            >
+              ← Edit Delivery Details
+            </button>
+          ) : (
+            <Link
+              href="/cart"
+              className="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-orange-600 hover:text-orange-700"
+            >
+              ← Back to Cart
+            </Link>
+          )}
+
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Checkout
+            {step === "details" ? "Delivery Details" : "UPI Payment"}
           </h1>
           <p className="text-sm text-slate-600">
-            Enter your delivery details and choose a payment method.
+            {step === "details"
+              ? "Enter your delivery address to proceed to payment."
+              : `Complete the payment of ₹${subtotal.toLocaleString("en-IN")} via UPI.`}
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="grid gap-6 lg:grid-cols-[1fr_360px]"
-        >
-          <div className="space-y-6">
-            {/* Customer Details */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">
-                Delivery Information
-              </h2>
-              <p className="text-xs text-slate-500">
-                Where should we deliver your order?
-              </p>
+        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+          {/* Main Area */}
+          <div>
+            {step === "details" ? (
+              <form onSubmit={handleProceedToPayment}>
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-base font-bold text-slate-900">
+                    Delivery Address
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    All fields are required.
+                  </p>
 
-              <div className="mt-5 space-y-4">
-                {/* Full Name */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Chandru Manoharan"
-                    required
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                  />
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                    Mobile Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="10-digit mobile number"
-                    required
-                    pattern="[0-9]{10}"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                  />
-                </div>
-
-                {/* Address */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                    Address <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Flat / House no., Building, Street name, Area"
-                    rows={3}
-                    required
-                    className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                  />
-                </div>
-
-                {/* City & State */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      City <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="e.g. Chennai"
-                      required
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      State <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={state}
-                      onChange={(e) => setState(e.target.value)}
-                      placeholder="e.g. Tamil Nadu"
-                      required
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                    />
-                  </div>
-                </div>
-
-                {/* Pincode */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                    Pincode <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    placeholder="6-digit PIN code"
-                    required
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Payment Method Section */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">
-                Payment Method
-              </h2>
-              <p className="text-xs text-slate-500">
-                Select your preferred way to pay
-              </p>
-
-              <div className="mt-4 space-y-3">
-                {/* UPI Option */}
-                <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                    paymentMethod === "upi"
-                      ? "border-orange-500 bg-orange-50/40 ring-1 ring-orange-500"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="upi"
-                    checked={paymentMethod === "upi"}
-                    onChange={() => setPaymentMethod("upi")}
-                    className="mt-0.5 h-4 w-4 text-orange-600 focus:ring-orange-500"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-900">
-                        UPI
-                      </span>
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
-                        Instant
-                      </span>
+                  <div className="mt-5 space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Chandru Manoharan"
+                        required
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                      />
                     </div>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      Google Pay, PhonePe, Paytm, BHIM, or any UPI app
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Mobile Number *
+                      </label>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="10-digit mobile number"
+                        required
+                        pattern="[0-9]{10}"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Address *
+                      </label>
+                      <textarea
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="House / Flat no., Street, Area"
+                        rows={3}
+                        required
+                        className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                          City *
+                        </label>
+                        <input
+                          type="text"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="e.g. Chennai"
+                          required
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                          State *
+                        </label>
+                        <input
+                          type="text"
+                          value={state}
+                          onChange={(e) => setState(e.target.value)}
+                          placeholder="e.g. Tamil Nadu"
+                          required
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Pincode *
+                      </label>
+                      <input
+                        type="text"
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                        placeholder="6-digit PIN code"
+                        required
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="mt-6 w-full rounded-xl bg-orange-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.99]"
+                  >
+                    Continue to UPI Payment →
+                  </button>
+                </section>
+              </form>
+            ) : (
+              /* UPI Payment Screen */
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">
+                      Pay using UPI ID / QR
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Google Pay • PhonePe • Paytm • BHIM
                     </p>
                   </div>
-                </label>
+                  <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700">
+                    Amount: ₹{subtotal.toLocaleString("en-IN")}
+                  </span>
+                </div>
 
-                {/* Cash on Delivery Option */}
-                <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                    paymentMethod === "cod"
-                      ? "border-orange-500 bg-orange-50/40 ring-1 ring-orange-500"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="cod"
-                    checked={paymentMethod === "cod"}
-                    onChange={() => setPaymentMethod("cod")}
-                    className="mt-0.5 h-4 w-4 text-orange-600 focus:ring-orange-500"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-900">
-                        Cash on Delivery (COD)
-                      </span>
-                      <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                        Available
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      Pay with cash upon package delivery
-                    </p>
+                <div className="mt-6 flex flex-col items-center text-center">
+                  {/* QR Code */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-inner">
+                    <img
+                      src={qrCodeUrl}
+                      alt="UPI QR Code"
+                      className="h-44 w-44 rounded-lg object-contain"
+                    />
                   </div>
-                </label>
-              </div>
-            </section>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Scan with any UPI application to pay directly
+                  </p>
+
+                  <div className="my-4 flex w-full items-center">
+                    <div className="flex-1 border-t border-slate-200" />
+                    <span className="px-3 text-xs font-medium text-slate-400">
+                      OR PAY TO UPI ID
+                    </span>
+                    <div className="flex-1 border-t border-slate-200" />
+                  </div>
+
+                  {/* Copy UPI ID Box */}
+                  <div className="flex w-full max-w-sm items-center justify-between rounded-xl border border-slate-300 bg-slate-50 p-2.5">
+                    <span className="font-mono text-sm font-semibold text-slate-800">
+                      {STORE_UPI_ID}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={copyUpiId}
+                      className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-100 active:scale-95"
+                    >
+                      {copied ? "✓ Copied" : "Copy"}
+                    </button>
+                  </div>
+
+                  {/* Direct Mobile Deep-link */}
+                  <a
+                    href={upiUrl}
+                    className="mt-4 block w-full max-w-sm rounded-xl border border-orange-200 bg-orange-50 py-3 text-center text-xs font-bold text-orange-700 transition hover:bg-orange-100"
+                  >
+                    Open Installed UPI App (Mobile Only)
+                  </a>
+                </div>
+
+                {/* Verification Confirmation */}
+                <div className="mt-8 rounded-xl bg-slate-50 p-4 border border-slate-100">
+                  <p className="text-xs text-slate-600 text-center mb-3">
+                    Once you have completed the payment in your UPI app, click below to confirm your order:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleConfirmPayment}
+                    disabled={placingOrder}
+                    className="w-full rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {placingOrder ? "Verifying & Placing Order..." : "I Have Completed Payment →"}
+                  </button>
+                </div>
+              </section>
+            )}
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary Sidebar */}
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-6">
             <h2 className="text-base font-bold text-slate-900">
               Order Summary
@@ -364,23 +411,13 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={placingOrder}
-              className="mt-5 w-full rounded-xl bg-orange-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {placingOrder
-                ? "Placing Order..."
-                : paymentMethod === "cod"
-                ? `Place Order (COD) • ₹${subtotal.toLocaleString("en-IN")}`
-                : `Pay via UPI • ₹${subtotal.toLocaleString("en-IN")}`}
-            </button>
-
-            <p className="mt-3 text-center text-[11px] text-slate-400">
-              🔒 256-bit encrypted checkout
-            </p>
+            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+              <p className="text-xs font-medium text-slate-600">
+                Payment Method: <span className="font-bold text-slate-900">UPI Only</span>
+              </p>
+            </div>
           </aside>
-        </form>
+        </div>
       </div>
     </main>
   );
