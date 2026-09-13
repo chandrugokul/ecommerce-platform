@@ -44,9 +44,14 @@ export default function CheckoutPage() {
     setMounted(true);
   }, []);
 
-  const subtotal = getCartTotal(cart);
-  const deliveryCharge = 0;
-  const total = subtotal + deliveryCharge;
+    const subtotal = cart.reduce(
+    (sum, item) =>
+      sum + Number(item.price) * Number(item.quantity),
+    0
+  );
+
+  const deliveryCharge: number = 0;
+  const total: number = subtotal + deliveryCharge;
 
   if (!mounted) {
     return (
