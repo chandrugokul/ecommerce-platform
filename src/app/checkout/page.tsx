@@ -7,23 +7,21 @@ import { supabase } from "@/lib/supabase";
 import {
   CartItem,
   getCart,
-  getCartTotal,
   clearCart,
 } from "@/lib/cart";
 
-// Store Configuration
 const STORE_NAME = "NasreenDecor";
 const STORE_MOBILE_NUMBER = "9787074631";
 const STORE_UPI_ID = "sn5036031-4@okicici";
 const STORE_SLUG = "nasreendecor-main";
 
+type PaymentMethod = "upi" | "cod";
 export default function CheckoutPage() {
   const router = useRouter();
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [mounted, setMounted] = useState(false);
 
-  // Delivery details
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -31,205 +29,147 @@ export default function CheckoutPage() {
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
 
-  // Payment method & UTR
   const [paymentMethod, setPaymentMethod] =
-    useState<"upi" | "cod">("upi");
+    useState<PaymentMethod>("upi");
 
-  const [utrNumber, setUtrNumber] = useState("");
+  const [utr, setUtr] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
 
-  const [copied, setCopied] = useState<"id" | "phone" | null>(null);
   useEffect(() => {
-    setCart(getCart());
+    const currentCart = getCart();
+    setCart(currentCart);
     setMounted(true);
   }, []);
-
-    const subtotal = cart.reduce(
+  const subtotal = cart.reduce(
     (sum, item) =>
       sum + Number(item.price) * Number(item.quantity),
     0
   );
 
-  const deliveryCharge: number = 0;
-  const total: number = subtotal + deliveryCharge;
+  const deliveryCharge = 0;
+  const total = subtotal + deliveryCharge;
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading checkout...</p>
-      </div>
-    );
-  }
-
-  if (cart.length === 0) {
-    return (
-      <div className="min-h-screen bg-[#fffaf7] flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Your cart is empty
-          </h1>
-
-          <p className="mt-2 text-gray-600">
-            Add some products before checkout.
-          </p>
-
-          <Link
-            href="/"
-            className="inline-block mt-6 rounded-lg bg-orange-500 px-6 py-3 text-white font-semibold"
-          >
-            Continue Shopping
-          </Link>
-        </div>
-      </div>
-    );
-  }
-  const upiUrl = `upi://pay?pa=${STORE_UPI_ID}&pn=${encodeURIComponent(
+  const qrData = `upi://pay?pa=${encodeURIComponent(
+    STORE_UPI_ID
+  )}&pn=${encodeURIComponent(
     STORE_NAME
-  )}&am=${total}&cu=INR`;
+  )}&am=${total.toFixed(2)}&cu=INR`;
 
-  const qrCodeUrl =
-    `https://api.qrserver.com/v1/create-qr-code/` +
-    `?size=220x220&data=${encodeURIComponent(upiUrl)}`;
-
-  const copyToClipboard = (
-    text: string,
-    type: "id" | "phone"
-  ) => {
-    navigator.clipboard.writeText(text);
-    setCopied(type);
-
-    setTimeout(() => {
-      setCopied(null);
-    }, 2000);
-  };
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    if (
-      !name.trim() ||
-      !phone.trim() ||
-      !address.trim() ||
-      !city.trim() ||
-      !state.trim() ||
-      !pincode.trim()
-    ) {
-      alert("Please fill in all delivery details.");
-      return;
+  function validateForm() {
+    if (!name.trim()) {
+      alert("Please enter your name.");
+      return false;
     }
 
-    const cleanPhone = phone.trim();
+    const cleanPhone = phone.replace(/\D/g, "");
 
-    if (!/^\d{10}$/.test(cleanPhone)) {
-      alert("Please enter a valid 10-digit mobile number.");
-      return;
+    if (cleanPhone.length !== 10) {
+      alert("Please enter a valid 10-digit phone number.");
+      return false;
     }
 
-    const cleanPincode = pincode.trim();
+    if (!address.trim()) {
+      alert("Please enter your address.");
+      return false;
+    }
 
-    if (!/^\d{6}$/.test(cleanPincode)) {
+    if (!city.trim()) {
+      alert("Please enter your city.");
+      return false;
+    }
+
+    if (!state.trim()) {
+      alert("Please enter your state.");
+      return false;
+    }
+
+    const cleanPincode = pincode.replace(/\D/g, "");
+
+    if (cleanPincode.length !== 6) {
       alert("Please enter a valid 6-digit pincode.");
-      return;
+      return false;
     }
 
-    const cleanUtr = utrNumber.trim();
+    if (cart.length === 0) {
+      alert("Your cart is empty.");
+      return false;
+    }
 
     if (paymentMethod === "upi") {
-      if (!/^\d{12}$/.test(cleanUtr)) {
-        alert(
-          "Please enter a valid 12-digit numeric UPI Reference / UTR Number."
-        );
-        return;
+      const cleanUtr = utr.replace(/\D/g, "");
+
+      if (cleanUtr.length !== 12) {
+        alert("Please enter a valid 12-digit UTR number.");
+        return false;
       }
     }
 
-    if (placingOrder) return;
+    return true;
+  }
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
 
     setPlacingOrder(true);
 
     try {
+      const cleanPhone = phone.replace(/\D/g, "");
+      const cleanPincode = pincode.replace(/\D/g, "");
+      const cleanUtr = utr.replace(/\D/g, "");
+
       const { data: store, error: storeError } = await supabase
         .from("stores")
         .select("id, store_name, slug")
         .eq("slug", STORE_SLUG)
+        .eq("status", "active")
         .single();
 
       if (storeError || !store) {
-        console.error("STORE ERROR:", storeError);
-        alert(
-          "Store information could not be loaded. Please try again."
-        );
-        return;
-      }
-
-      const { data: customer, error: customerError } =
-        await supabase
-          .from("customers")
-          .upsert(
-            {
-              store_id: store.id,
-              name: name.trim(),
-              phone: cleanPhone,
-              address: address.trim(),
-              city: city.trim(),
-              state: state.trim(),
-              pincode: cleanPincode,
-            },
-            {
-              onConflict: "store_id,phone",
-            }
-          )
-          .select("id")
-          .single();
-
-      if (customerError || !customer) {
-        console.error("CUSTOMER ERROR:", customerError);
+        console.error("Store error:", storeError);
 
         alert(
-          `Customer creation failed: ${
-            customerError?.message ||
-            "Unable to create customer"
+          `Store not found: ${
+            storeError?.message || "Unknown error"
           }`
         );
 
         return;
       }
 
-      const { error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          store_id: store.id,
-          customer_id: customer.id,
-
-          customer_name: name.trim(),
-          customer_phone: cleanPhone,
-
-          address: address.trim(),
-          city: city.trim(),
-          state: state.trim(),
-          pincode: cleanPincode,
-
-          items: cart,
-
-          subtotal: subtotal,
-          delivery_charge: deliveryCharge,
-          total: total,
-
-          payment_method: paymentMethod,
-
-          utr_number:
+      const { data: orderId, error: orderError } =
+        await supabase.rpc("place_order", {
+          p_store_id: store.id,
+          p_name: name.trim(),
+          p_phone: cleanPhone,
+          p_address: address.trim(),
+          p_city: city.trim(),
+          p_state: state.trim(),
+          p_pincode: cleanPincode,
+          p_items: cart,
+          p_subtotal: subtotal,
+          p_delivery_charge: deliveryCharge,
+          p_total: total,
+          p_payment_method: paymentMethod,
+          p_utr_number:
             paymentMethod === "upi"
               ? cleanUtr
               : null,
-
-          status:
-            paymentMethod === "cod"
-              ? "pending"
-              : "pending_verification",
         });
 
       if (orderError) {
-        console.error("ORDER ERROR:", orderError);
+        console.error("Order error:", orderError);
+
         alert(`Order failed: ${orderError.message}`);
+
+        return;
+      }
+
+      if (!orderId) {
+        alert("Order could not be created.");
+
         return;
       }
 
@@ -237,388 +177,479 @@ export default function CheckoutPage() {
 
       router.push("/order-success");
     } catch (error) {
-      console.error("CHECKOUT ERROR:", error);
-      alert("Something went wrong. Please try again.");
+      console.error("Checkout error:", error);
+
+      alert(
+        "Something went wrong while placing your order."
+      );
     } finally {
       setPlacingOrder(false);
     }
   }
+  if (!mounted) {
+    return (
+      <main className="min-h-screen bg-[#fffaf7] flex items-center justify-center">
+        <p className="text-slate-600">
+          Loading checkout...
+        </p>
+      </main>
+    );
+  }
+
+  if (cart.length === 0) {
+    return (
+      <main className="min-h-screen bg-[#fffaf7]">
+        <header className="sticky top-0 z-50 border-b border-orange-100 bg-white/95 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+            <Link
+              href="/"
+              className="text-xl font-black text-slate-900"
+            >
+              Nasreen
+              <span className="text-orange-500">
+                Decor
+              </span>
+            </Link>
+
+            <Link
+              href="/"
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        </header>
+
+        <div className="mx-auto flex min-h-[70vh] max-w-6xl items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-3xl border border-orange-100 bg-white p-8 text-center shadow-sm">
+            <div className="mb-4 text-5xl">
+              🛒
+            </div>
+
+            <h1 className="text-2xl font-black text-slate-900">
+              Your cart is empty
+            </h1>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Add some products before going to checkout.
+            </p>
+
+            <Link
+              href="/"
+              className="mt-6 inline-block rounded-2xl bg-slate-900 px-6 py-3 text-sm font-bold text-white"
+            >
+              Browse Products
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
   return (
-    <div className="min-h-screen bg-[#fffaf7]">
-      <header className="sticky top-0 z-50 border-b border-orange-100 bg-white">
+    <main className="min-h-screen bg-[#fffaf7]">
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 border-b border-orange-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link
             href="/"
-            className="text-2xl font-bold text-gray-900"
+            className="text-xl font-black text-slate-900"
           >
-            <span>Nasreen</span>
-            <span className="text-blue-600">Decor</span>
+            Nasreen
+            <span className="text-orange-500">
+              Decor
+            </span>
           </Link>
 
           <Link
-            href="/cart"
-            className="text-sm font-semibold text-gray-700"
+            href="/"
+            className="text-sm font-bold text-slate-700 hover:text-orange-500"
           >
-            ← Back to Cart
+            ← Continue Shopping
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="mb-8 text-3xl font-bold text-gray-900">
-          Checkout
-        </h1>
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <div className="mb-8">
+          <p className="text-sm font-bold uppercase tracking-widest text-orange-500">
+            NasreenDecor
+          </p>
+
+          <h1 className="mt-1 text-3xl font-black text-slate-900">
+            Checkout
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Enter your delivery details and select your payment method.
+          </p>
+        </div>
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-8 lg:grid-cols-3"
+          className="grid gap-6 lg:grid-cols-[1fr_380px]"
         >
-          <div className="space-y-6 lg:col-span-2">
-            <section className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm">
-              <h2 className="mb-5 text-xl font-bold text-gray-900">
+          {/* LEFT SIDE */}
+          <div className="space-y-6">
+            {/* DELIVERY DETAILS */}
+            <section className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-black text-slate-900">
                 Delivery Details
               </h2>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="mt-5 grid gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
                     Full Name
                   </label>
+
                   <input
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) =>
+                      setName(e.target.value)
+                    }
                     placeholder="Enter your name"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
-                    required
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-orange-400"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
                     Mobile Number
                   </label>
+
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) =>
+                      setPhone(e.target.value)
+                    }
                     placeholder="10-digit mobile number"
                     maxLength={10}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
-                    required
+                    inputMode="numeric"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-orange-400"
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
                     Address
                   </label>
+
                   <textarea
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="House / Door No, Street, Area"
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
-                    required
+                    onChange={(e) =>
+                      setAddress(e.target.value)
+                    }
+                    placeholder="House / Flat / Street / Area"
+                    rows={4}
+                    className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-orange-400"
                   />
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="City"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    placeholder="State"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Pincode
-                  </label>
-                  <input
-                    type="text"
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    placeholder="6-digit pincode"
-                    maxLength={6}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
-                    required
-                  />
-                </div>
-              </div>
-            </section>
-            <section className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm">
-              <h2 className="mb-5 text-xl font-bold text-gray-900">
-                Payment Method
-              </h2>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("upi")}
-                  className={`rounded-xl border-2 p-4 text-left ${
-                    paymentMethod === "upi"
-                      ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200"
-                  }`}
-                >
-                  <div className="font-bold text-gray-900">
-                    UPI Payment
-                  </div>
-                  <div className="mt-1 text-sm text-gray-600">
-                    Pay using UPI and enter the UTR number
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("cod")}
-                  className={`rounded-xl border-2 p-4 text-left ${
-                    paymentMethod === "cod"
-                      ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200"
-                  }`}
-                >
-                  <div className="font-bold text-gray-900">
-                    Cash on Delivery
-                  </div>
-                  <div className="mt-1 text-sm text-gray-600">
-                    Pay when your order is delivered
-                  </div>
-                </button>
-              </div>
-
-              {paymentMethod === "upi" && (
-                <div className="mt-6 rounded-xl bg-gray-50 p-5">
-                  <h3 className="font-bold text-gray-900">
-                    Pay using UPI
-                  </h3>
-
-                  <div className="mt-4 text-center">
-                    <img
-                      src={qrCodeUrl}
-                      alt="UPI Payment QR Code"
-                      className="mx-auto h-[220px] w-[220px] rounded-lg border bg-white p-2"
-                    />
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        UPI ID
-                      </p>
-
-                      <div className="mt-1 flex items-center gap-2">
-                        <div className="flex-1 rounded-lg border bg-white px-3 py-3 text-sm font-medium break-all">
-                          {STORE_UPI_ID}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            copyToClipboard(
-                              STORE_UPI_ID,
-                              "id"
-                            )
-                          }
-                          className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white"
-                        >
-                          {copied === "id"
-                            ? "Copied"
-                            : "Copy"}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        Store Mobile
-                      </p>
-
-                      <div className="mt-1 flex items-center gap-2">
-                        <div className="flex-1 rounded-lg border bg-white px-3 py-3 text-sm font-medium">
-                          {STORE_MOBILE_NUMBER}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            copyToClipboard(
-                              STORE_MOBILE_NUMBER,
-                              "phone"
-                            )
-                          }
-                          className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white"
-                        >
-                          {copied === "phone"
-                            ? "Copied"
-                            : "Copy"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      UPI Reference / UTR Number
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      City
                     </label>
 
                     <input
                       type="text"
-                      inputMode="numeric"
-                      value={utrNumber}
+                      value={city}
                       onChange={(e) =>
-                        setUtrNumber(e.target.value)
+                        setCity(e.target.value)
+                      }
+                      placeholder="City"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-orange-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      State
+                    </label>
+
+                    <input
+                      type="text"
+                      value={state}
+                      onChange={(e) =>
+                        setState(e.target.value)
+                      }
+                      placeholder="State"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-orange-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    Pincode
+                  </label>
+
+                  <input
+                    type="text"
+                    value={pincode}
+                    onChange={(e) =>
+                      setPincode(
+                        e.target.value.replace(/\D/g, "")
+                      )
+                    }
+                    placeholder="6-digit pincode"
+                    maxLength={6}
+                    inputMode="numeric"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-orange-400"
+                  />
+                </div>
+              </div>
+            </section>
+            {/* PAYMENT */}
+            <section className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-black text-slate-900">
+                Payment Method
+              </h2>
+
+              <div className="mt-5 grid gap-3">
+                {/* UPI */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("upi")}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    paymentMethod === "upi"
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">
+                      📱
+                    </div>
+
+                    <div>
+                      <p className="font-black text-slate-900">
+                        UPI Payment
+                      </p>
+
+                      <p className="text-xs text-slate-500">
+                        Pay using UPI QR and enter UTR number
+                      </p>
+                    </div>
+
+                    <div className="ml-auto">
+                      <div
+                        className={`h-5 w-5 rounded-full border-2 ${
+                          paymentMethod === "upi"
+                            ? "border-orange-500 bg-orange-500"
+                            : "border-slate-300"
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </button>
+
+                {/* COD */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("cod")}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    paymentMethod === "cod"
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">
+                      💵
+                    </div>
+
+                    <div>
+                      <p className="font-black text-slate-900">
+                        Cash on Delivery
+                      </p>
+
+                      <p className="text-xs text-slate-500">
+                        Pay when your order is delivered
+                      </p>
+                    </div>
+
+                    <div className="ml-auto">
+                      <div
+                        className={`h-5 w-5 rounded-full border-2 ${
+                          paymentMethod === "cod"
+                            ? "border-orange-500 bg-orange-500"
+                            : "border-slate-300"
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* UPI DETAILS */}
+              {paymentMethod === "upi" && (
+                <div className="mt-5 rounded-3xl bg-slate-50 p-5">
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-slate-700">
+                      Scan & Pay
+                    </p>
+
+                    <div className="mx-auto mt-4 flex h-56 w-56 items-center justify-center rounded-2xl border border-slate-200 bg-white p-3">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                          qrData
+                        )}`}
+                        alt="UPI Payment QR Code"
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+
+                    <p className="mt-4 text-xs text-slate-500">
+                      UPI ID
+                    </p>
+
+                    <p className="font-black text-slate-900">
+                      {STORE_UPI_ID}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Amount: ₹{total.toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="mt-5">
+                    <label className="mb-2 block text-sm font-bold text-slate-700">
+                      UTR / Transaction Number
+                    </label>
+
+                    <input
+                      type="text"
+                      value={utr}
+                      onChange={(e) =>
+                        setUtr(
+                          e.target.value.replace(/\D/g, "")
+                        )
                       }
                       placeholder="Enter 12-digit UTR number"
                       maxLength={12}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-orange-500"
+                      inputMode="numeric"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-400"
                     />
 
-                    <p className="mt-1 text-xs text-gray-500">
-                      Complete the UPI payment first, then enter
-                      the reference number shown in your payment
-                      app.
+                    <p className="mt-2 text-xs text-slate-500">
+                      After completing the UPI payment, enter
+                      the transaction UTR number above.
                     </p>
                   </div>
-                </div>
-              )}
-
-              {paymentMethod === "cod" && (
-                <div className="mt-5 rounded-xl bg-green-50 p-4">
-                  <p className="font-semibold text-green-800">
-                    Cash on Delivery selected
-                  </p>
-
-                  <p className="mt-1 text-sm text-green-700">
-                    You can pay the delivery person when your
-                    order arrives.
-                  </p>
                 </div>
               )}
             </section>
           </div>
+          {/* RIGHT SIDE */}
+          <aside className="h-fit lg:sticky lg:top-24">
+            <section className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-black text-slate-900">
+                Order Summary
+              </h2>
 
-          <aside className="h-fit rounded-2xl border border-orange-100 bg-white p-5 shadow-sm">
-            <h2 className="mb-5 text-xl font-bold text-gray-900">
-              Order Summary
-            </h2>
+              <div className="mt-5 space-y-4">
+                {cart.map((item) => (
+                  <div
+                    key={String(item.id)}
+                    className="flex gap-3"
+                  >
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xl">
+                          🛍️
+                        </div>
+                      )}
+                    </div>
 
-            <div className="space-y-4">
-              {cart.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3"
-                >
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-xs text-gray-400">
-                        No image
-                      </div>
-                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {item.name}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        Qty: {item.quantity}
+                      </p>
+
+                      <p className="mt-1 text-sm font-black text-slate-900">
+                        ₹
+                        {(
+                          Number(item.price) *
+                          Number(item.quantity)
+                        ).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-gray-900">
-                      {item.name}
-                    </p>
+              <div className="my-5 border-t border-slate-100" />
 
-                    <p className="text-sm text-gray-500">
-                      Qty: {item.quantity}
-                    </p>
-                  </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">
+                    Subtotal
+                  </span>
 
-                  <p className="font-semibold text-gray-900">
-                    ₹
-                    {(
-                      Number(item.price) *
-                      item.quantity
-                    ).toFixed(2)}
-                  </p>
+                  <span className="font-bold text-slate-900">
+                    ₹{subtotal.toFixed(2)}
+                  </span>
                 </div>
-              ))}
-            </div>
 
-            <div className="my-5 border-t border-gray-200" />
+                <div className="flex justify-between">
+                  <span className="text-slate-500">
+                    Delivery
+                  </span>
 
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">
-                  Subtotal
-                </span>
+                  <span className="font-bold text-green-600">
+                    FREE
+                  </span>
+                </div>
 
-                <span className="font-medium">
-                  ₹{subtotal.toFixed(2)}
-                </span>
+                <div className="border-t border-slate-100 pt-3">
+                  <div className="flex justify-between">
+                    <span className="text-lg font-black text-slate-900">
+                      Total
+                    </span>
+
+                    <span className="text-xl font-black text-orange-500">
+                      ₹{total.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
               </div>
+              <button
+                type="submit"
+                disabled={placingOrder}
+                className={`mt-6 w-full rounded-2xl px-5 py-4 text-sm font-black text-white transition ${
+                  placingOrder
+                    ? "cursor-not-allowed bg-slate-400"
+                    : "bg-slate-900 hover:bg-slate-700"
+                }`}
+              >
+                {placingOrder
+                  ? "Placing Order..."
+                  : paymentMethod === "upi"
+                  ? "Confirm UPI Order"
+                  : "Place COD Order"}
+              </button>
 
-              <div className="flex justify-between">
-                <span className="text-gray-600">
-                  Delivery
-                </span>
-
-                <span className="font-medium text-green-600">
-                  {deliveryCharge === 0
-                    ? "FREE"
-                    : `₹${deliveryCharge.toFixed(2)}`}
-                </span>
-              </div>
-            </div>
-
-            <div className="my-5 border-t border-gray-200" />
-
-            <div className="flex items-center justify-between">
-              <span className="text-lg font-bold text-gray-900">
-                Total
-              </span>
-
-              <span className="text-xl font-bold text-orange-600">
-                ₹{total.toFixed(2)}
-              </span>
-            </div>
-            <button
-              type="submit"
-              disabled={placingOrder}
-              className="mt-6 w-full rounded-xl bg-orange-500 px-5 py-4 font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {placingOrder
-                ? "Placing Order..."
-                : `Place Order • ₹${total.toFixed(2)}`}
-            </button>
-
-            <p className="mt-3 text-center text-xs text-gray-500">
-              By placing this order, you confirm that your
-              delivery details are correct.
-            </p>
+              <p className="mt-4 text-center text-xs leading-5 text-slate-400">
+                By placing this order, you confirm that the
+                delivery details provided above are correct.
+              </p>
+            </section>
           </aside>
         </form>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
