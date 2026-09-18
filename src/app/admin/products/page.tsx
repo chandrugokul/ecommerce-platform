@@ -209,12 +209,16 @@ export default async function ProductsPage() {
                   <div className="mb-2 flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
-                        {product.category || "General"}
-                      </p>
+  {product.category || "General"}
+</p>
 
-                      <h3 className="mt-1 text-lg font-bold text-slate-900">
-                        {product.name}
-                      </h3>
+<p className="mt-2 text-xs font-semibold text-slate-400">
+  Store: {product.stores?.store_name || "Not assigned"}
+</p>
+
+<h3 className="mt-1 text-lg font-bold text-slate-900">
+  {product.name}
+</h3>
                     </div>
 
                     <p className="whitespace-nowrap text-lg font-bold text-slate-900">
