@@ -6,9 +6,16 @@ import DeleteProductButton from "./DeleteProductButton";
 
 export default async function ProductsPage() {
   const { data: products, error } = await supabase
-    .from("products")
-    .select("*")
-    .order("created_at", { ascending: false });
+  .from("products")
+  .select(`
+    *,
+    stores (
+      id,
+      store_name,
+      client_id
+    )
+  `)
+  .order("created_at", { ascending: false });
 
   if (error) {
     return (
