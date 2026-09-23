@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -10,93 +10,189 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
 
-  async function handleLogin(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  useEffect(() => {
+    checkExistingSession();
+  }, []);
 
-    setLoading(true);
-    setError("");
+  async function checkExistingSession() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (error) {
-      setError(error.message);
-      setLoading(false);
+    if (session?.user) {
+      router.replace("/admin");
       return;
     }
 
-    router.push("/admin/orders");
+    setChecking(false);
+  }
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setError("");
+
+    if (!email.trim()) {
+      setError("Please enter your email.");
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+      if (loginError) {
+        console.error("LOGIN ERROR:", loginError);
+        setError(loginError.message);
+        return;
+      }
+
+      if (!data.user) {
+        setError("Login failed. Please try again.");
+        return;
+      }
+
+      /*
+       * Verify that this authenticated user is connected
+       * to a client in client_users.
+       */
+      const { data: clientUser, error: clientError } =
+        await supabase
+          .from("client_users")
+          .select("id, client_id, role, status")
+          .eq("user_id", data.user.id)
+          .eq("status", "active")
+          .maybeSingle();
+
+      if (clientError) {
+        console.error("CLIENT USER ERROR:", clientError);
+
+        await supabase.auth.signOut();
+
+        setError("Unable to verify your client account.");
+        return;
+      }
+
+      if (!clientUser) {
+        await supabase.auth.signOut();
+
+        setError(
+          "Your account is not connected to an active client."
+        );
+        return;
+      }
+
+      router.replace("/admin");
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
+
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fffaf7]">
+        <div className="text-sm text-gray-600">
+          Checking login...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#fffaf7] px-4">
-      <div className="w-full max-w-md rounded-3xl border border-orange-100 bg-white p-7 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-[#fffaf7] px-4 py-8">
+      <div className="w-full max-w-md">
+        <div className="rounded-2xl border border-orange-100 bg-white p-6 shadow-lg sm:p-8">
 
-        <div className="text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 text-3xl">
-            🌸
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Admin Login
+            </h1>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Sign in to manage your store
+            </p>
           </div>
 
-          <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-orange-500">
-            NasreenDecor
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">
-            Admin Login
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Sign in to manage your store.
-          </p>
-        </div>
-
-        <form onSubmit={handleLogin} className="mt-7">
-
-          <label className="mb-2 block text-sm font-semibold">
-            Email
-          </label>
-
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Admin email"
-            required
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 outline-none focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
-          />
-
-          <label className="mb-2 mt-5 block text-sm font-semibold">
-            Password
-          </label>
-
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Admin password"
-            required
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 outline-none focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-100"
-          />
-
           {error && (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 w-full rounded-xl bg-slate-900 px-5 py-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Signing in..." : "Sign In →"}
-          </button>
+          <form onSubmit={handleLogin} className="space-y-5">
 
-        </form>
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm font-semibold text-gray-700"
+              >
+                Email
+              </label>
+
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Enter your email"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="mb-2 block text-sm font-semibold text-gray-700"
+              >
+                Password
+              </label>
+
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter your password"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-400">
+              Authorized client users only
+            </p>
+          </div>
+
+        </div>
       </div>
     </main>
   );
